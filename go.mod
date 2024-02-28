@@ -1,3 +1,3 @@
-module awesomeProject
+module GoPractice
 
 go 1.21
