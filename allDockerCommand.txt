@@ -1,0 +1,90 @@
+Docker Command
+
+
+Dockerfile content
+—————————————————————————————————————
+# Build stage
+FROM --platform=linux/amd64 alpine:3.19.1 AS builder
+
+# Install necessary dependencies
+RUN apk add --no-cache curl
+RUN apk --no-cache add \
+    openjdk17 \
+    maven
+
+WORKDIR /app
+
+# Resolve Maven dependencies
+COPY ./pom.xml ./pom.xml
+
+RUN mvn -f ./pom.xml dependency:resolve
+
+# Bundle the jar
+COPY . .
+
+RUN mvn clean package
+
+# Deploy stage
+FROM --platform=linux/amd64 openjdk:17-jdk-slim
+
+#Set active profile
+ENV ACTIVE_PROFILE=${ACTIVE_PROFILE}
+
+WORKDIR /app
+
+COPY --from=builder /app/target/CFChatBotApi.jar .
+COPY --from=builder /app/cf-scanner-jar ./cf-scanner-jar
+
+EXPOSE 8888
+
+ENTRYPOINT ["java", "-Dspring.profiles.active=${ACTIVE_PROFILE}", "-jar", "CFChatBotApi.jar"]
+
+—————————————————————————————————————————————————
+
+Docker-compose.yml
+—————————————————
+version: '3.9'
+
+services:
+
+  kafka:
+    image: "bitnami/kafka:3.7.0"
+    restart: on-failure
+    hostname: kafka
+    ports:
+      - "6779:6779"
+    environment:
+      # KRaft settings
+      - KAFKA_CFG_NODE_ID=0
+      - KAFKA_CFG_PROCESS_ROLES=controller,broker
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@kafka:9093
+      # Listeners
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:6779,CONTROLLER://:9093
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://deploy.cloudframe.com:6779
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+———————————————————
+
+
+
+Deploy command
+—————————————————————
+
+docker build -t ghcr.io/cloudframe/cf_chatbot_api_qa:latest .
+docker login ghcr.io
+docker push ghcr.io/cloudframe/cf_chatbot_api_qa:latest
+
+Server Deployment
+ssh -i lisa.pem ibmsys1@deploy.cloudframe.com -p 922
+Passphrase: I*L0v3CloudFrame
+cd cf_chatbot_api
+docker ps -a
+docker stop 55fec2a17206
+docker pull ghcr.io/cloudframe/cf_chatbot_api_qa:latest
+docker run -d -p 6780:8888 ghcr.io/cloudframe/cf_chatbot_api_qa:latest --name cf_chatbot_api_qa
+
+
+
+
+
