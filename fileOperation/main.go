@@ -16,25 +16,23 @@ func writeFile(fileName string) {
 	var content = "Hi! This is Avijit Barua. " +
 		"I am trying to create a new file. These are the content"
 	file, err := os.Create(fileName)
-	if err != nil {
-		panic(err)
-	}
+	errCheck(err)
 	length, err := io.WriteString(file, content)
-	if err != nil {
-		panic(err)
-	}
+	errCheck(err)
 	fmt.Println("Length of file is ", length)
 	err = file.Close()
-	if err != nil {
-		panic(err)
-	}
+	errCheck(err)
 }
 
 func readFile(fileName string) {
 	bytes, err := os.ReadFile(fileName)
+	errCheck(err)
+	var content = string(bytes)
+	fmt.Println(content)
+}
+
+func errCheck(err error) {
 	if err != nil {
 		panic(err)
 	}
-	var content = string(bytes)
-	fmt.Println(content)
 }
